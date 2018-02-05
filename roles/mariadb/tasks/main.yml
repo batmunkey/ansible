@@ -1,0 +1,40 @@
+- name: Add key for maria
+  apt_key: keyserver=keyserver.ubuntu.com id=0xcbcb082a1bb943db state=present
+
+- name: Add the mariadb repo
+  apt_repository: repo='deb [arch=amd64,i386,ppc64el] http://mirrors.accretive-networks.net/mariadb/repo/10.1/ubuntu xenial main' state=present
+
+- name: apt installs
+  apt: name="{{ item }}" update_cache=yes state=present allow_unauthenticated=yes
+  with_items:
+   - software-properties-common
+   - mariadb-server
+   - mariadb-client
+   - python-mysqldb
+  become: true
+
+- name: Enable maria
+  service: name="{{ item }}" enabled=yes
+  with_items:
+    - mariadb
+
+- name: start services
+  service: name="{{ item }}" state=started
+  with_items:
+    - mariadb
+
+# These three commands do the important stuff from mysql secure install
+- name: delete anonymous MySQL server user for {{ ansible_hostname }}
+  action: mysql_user user="" host="{{ ansible_hostname }}" state="absent"
+
+- name: delete anonymous mysql user
+  mysql_user: name="" state=absent
+
+- name: remove mysql test database
+  mysql_db: name=test state=absent
+
+- name: Add database
+  mysql_db: name={{ database_name }} state=present
+
+- name: Add users
+  mysql_user: name={{ database_user }} password={{ database_pass }} priv={{ database_user }}.*:ALL,GRANT state=present
