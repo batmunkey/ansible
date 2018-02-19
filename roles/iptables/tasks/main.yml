@@ -1,0 +1,71 @@
+
+########
+#By: https://github.com/batmunkey
+########
+
+  - name: Apt installs
+    apt: name="{{ item }}" state=present
+    with_items:
+      - iptables
+      - iptables-persistent
+
+  # Removes default SELinux default rules
+  - name: Remove default iptables
+    command: iptables -F
+
+  - name: Disable firewalld
+    service:
+      name: firewalld
+      enabled: no
+    ignore_errors: yes
+
+  - name: Enable iptables
+    service:
+      name: iptables
+      enabled: yes
+      state: started
+    ignore_errors: yes
+
+  - name: Allow related and established traffic
+    iptables: chain=INPUT ctstate=ESTABLISHED,RELATED jump=ACCEPT
+    become: yes
+
+  - name: Allow related and established traffic out
+    iptables: chain=OUTPUT ctstate=ESTABLISHED,RELATED jump=ACCEPT
+    become: yes
+
+  - name: Allow ping
+    iptables: chain=INPUT protocol=icmp jump=ACCEPT
+    become: yes
+
+  - name: Allow ping reply
+    iptables: chain=OUTPUT protocol=icmp jump=ACCEPT
+    become: yes
+
+  - name: Allow loopback
+    iptables: chain=INPUT in_interface=lo jump=ACCEPT
+    become: yes
+
+  - name: Open ports on machine
+    iptables: chain=INPUT protocol=tcp match=tcp destination_port={{ item }} jump=ACCEPT
+    with_items: "{{ ports_tcp }}"
+    become: yes
+
+  - name: Open ports on machine
+    iptables: chain=INPUT protocol=udp match=udp destination_port={{ item }} jump=ACCEPT
+    with_items: "{{ ports_udp }}"
+    become: yes
+
+  - name: Allow ssh by default
+    iptables: chain=INPUT protocol=tcp match=tcp destination_port=22 jump=ACCEPT
+    become: yes
+
+  - name: Drop all traffic not mentioned
+    iptables: chain=INPUT jump=DROP
+    become: yes
+
+  - name: Save new iptables
+    command: netfilter-persistent save
+
+  - name: Reload iptables
+    command: netfilter-persistent reload
